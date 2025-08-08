@@ -203,8 +203,11 @@ class AIAssistant:
         **CRITICAL REQUIREMENTS:**
         1. ⚠️ ALWAYS prioritize ANY table with name-related columns (firstname, lastname, fullname, name, personname, customer_name, employee_name, etc.)
         2. 🔴 ANY table with name columns MUST get HIGH priority with confidence 0.95+
-        3. � Include tables like Person.Person, Employee tables, Customer tables, User tables
+        3. 🔍 Include tables like Person.Person, Employee tables, Customer tables, User tables
         4. 🚨 Name columns require 100% encryption priority
+        5. ⚠️ Any table with sensitive data (e.g., health, financial) must be flagged for review.
+        6. Please use the data to identify potential PII across all tables.
+        7. Columns and data can be in any language.
 
         Tables to analyze:
         {tables_json}
