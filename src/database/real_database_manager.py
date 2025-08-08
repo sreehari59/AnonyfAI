@@ -259,9 +259,20 @@ class RealDatabaseManager:
                         safe_columns.append(f"[{col_name}]")
                 
                 if safe_columns:
+                    # Build WHERE clause to exclude rows where all columns are NULL
+                    # Create NOT NULL conditions for each original column
+                    not_null_conditions = []
+                    for row in column_info:
+                        col_name = row[0]
+                        not_null_conditions.append(f"[{col_name}] IS NOT NULL")
+                    
+                    # Use OR to get rows where at least one column is not null
+                    where_clause = f"WHERE ({' OR '.join(not_null_conditions)})" if not_null_conditions else ""
+                    
                     safe_query = f"""
                     SELECT TOP {limit} {', '.join(safe_columns)}
                     FROM [{schema}].[{table}]
+                    {where_clause}
                     """
                     
                     self.logger.debug(f"Executing safe query for {schema}.{table}")

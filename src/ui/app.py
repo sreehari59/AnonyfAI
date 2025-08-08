@@ -15,6 +15,7 @@ import base64
 import json
 import re
 import difflib
+import PyPDF2
 from typing import List, Dict, Optional
 
 def create_enhanced_dataframe(data, column_mappings=None, format_columns=None, style_columns=None):
@@ -130,9 +131,97 @@ if 'ai_api_key' not in st.session_state:
 if 'logger' not in st.session_state:
     st.session_state.logger = logger
 
+# Import utility functions for regulations processing
+def make_prompt(system_message, user_message):
+    """Create a prompt structure for AI interaction"""
+    return [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": user_message}
+    ]
+
+def ask_ai_with_claude(prompt):
+    """Use Claude AI for regulation processing"""
+    try:
+        if st.session_state.ai_assistant and st.session_state.ai_assistant.is_available():
+            # Create a simple text prompt from the structured prompt
+            system_msg = prompt[0]["content"] if len(prompt) > 0 else ""
+            user_msg = prompt[1]["content"] if len(prompt) > 1 else ""
+            
+            # Use the existing AI assistant
+            response = st.session_state.ai_assistant.client.messages.create(
+                model="claude-3-5-haiku-latest",
+                max_tokens=4000,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_msg}]
+            )
+            return response.content[0].text
+        else:
+            return "AI assistant not available. Please configure your Claude API key."
+    except Exception as e:
+        return f"Error processing with AI: {str(e)}"
+
+def read_pdf_text(uploaded_file):
+    """Extract text from uploaded PDF file"""
+    text = ""
+    try:
+        reader = PyPDF2.PdfReader(uploaded_file)
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+    except Exception as e:
+        st.error(f"Error reading PDF: {str(e)}")
+        return ""
+    return text
+
+def get_personal_data_definition(pdf_text):
+    """Extract personal data definitions from PDF text using AI"""
+    system_prompt = """You are an expert in laws and regulations. Based on the input text, generate a comprehensive list of attributes that denote personal data according to the regulation.
+
+    Please provide:
+    1. A list of personal data attributes mentioned in the text
+    2. Brief definitions for each attribute
+    3. The regulation's name and key details
+
+    Format the output as a clean JSON structure with:
+    - regulation_name: string
+    - description: brief description of the regulation
+    - personal_data_attributes: array of objects with "attribute" and "definition" fields
+    - key_requirements: array of key compliance requirements
+    - effective_date: if mentioned
+    
+    Do not make assumptions beyond what's explicitly stated in the document."""
+    
+    prompt = make_prompt(system_prompt, pdf_text)
+    response = ask_ai_with_claude(prompt)
+    
+    try:
+        # Try to parse as JSON
+        json_response = json.loads(response)
+        return json_response
+    except json.JSONDecodeError:
+        # If not valid JSON, return a structured response
+        return {
+            "regulation_name": "Unknown Regulation",
+            "description": "Regulation document processed",
+            "personal_data_attributes": response.split(",") if "," in response else [response],
+            "key_requirements": ["See full document for details"],
+            "processing_note": "Raw AI response (not structured JSON)",
+            "raw_response": response
+        }
+
 def main():
-    # Clean sidebar navigation
-    st.sidebar.title("📋 Navigation")
+    # Clean sidebar navigation with logo
+    try:
+        # Display logo in sidebar
+        logo_path = os.path.join(os.path.dirname(__file__), "logo2.png")
+        if os.path.exists(logo_path):
+            st.sidebar.image(logo_path, width=200)
+        else:
+            st.sidebar.title("📋 Navigation")
+    except Exception:
+        # Fallback to text if logo fails to load
+        st.sidebar.title("📋 Navigation")
     
     # AI Configuration - simplified
     st.sidebar.subheader("🤖 AI Configuration")
@@ -183,7 +272,8 @@ def main():
         "2. AI Discovery", 
         "3. Encryption Preparation",
         "4. Results Display",
-        "5. Check Results Table"
+        "5. Check Results Table",
+        "6. Upload Regulations"
     ]
     
     try:
@@ -217,6 +307,8 @@ def main():
         show_results_display()
     elif current_page == "5. Check Results Table":
         show_check_results_table()
+    elif current_page == "6. Upload Regulations":
+        show_upload_regulations()
 
 def show_dashboard():
     """Clean and professional dashboard with workflow overview"""
@@ -664,7 +756,8 @@ def show_ai_discovery():
     
     with col1:
         confidence_threshold = st.slider("Minimum confidence threshold:", 0.0, 1.0, 0.6, 0.1)
-        # sample_rows = st.selectbox("Sample rows per table:", [10, 50, 100, 500], index=1)
+        max_tables_to_analyze = st.slider("Max tables to analyze:", 10, 100, 50, 5, 
+                                         help="Limit the number of tables to analyze for better performance")
     
     with col2:
         include_system_tables = st.checkbox("Include system/metadata tables", value=False)
@@ -687,7 +780,42 @@ def show_ai_discovery():
                 progress_bar.progress(0.3)
                 
                 tables_info = st.session_state.db_manager.get_tables(connection_id)
-                st.write(f"📋 Found {len(tables_info)} tables to analyze")
+                
+                # Database-specific table prioritization for ECC60jkl_HACK (SAP ECC)
+                if database_name == "ECC60jkl_HACK":
+                    priority_tables = []
+                    other_tables = []
+                    
+                    for table in tables_info:
+                        table_name = table.get('table', table.get('name', '')).upper()
+                        schema_name = table.get('schema', '').lower()
+                        
+                        # Prioritize dbo.KNA1 (Customer Master) and dbo.P* tables (Personnel/HR tables in SAP)
+                        if schema_name == 'dbo' and (table_name == 'KNA1' or table_name.startswith('P')):
+                            priority_tables.append(table)
+                        else:
+                            other_tables.append(table)
+                    
+                    # Combine priority tables first, then others
+                    tables_info = priority_tables + other_tables
+                    
+                    # if priority_tables:
+                    #     st.info(f"🎯 **SAP ECC Analysis**: Prioritizing {len(priority_tables)} key tables (dbo.KNA1 + dbo.P* tables) for PII detection")
+                    #     st.write("**Priority tables:**")
+                    #     for table in priority_tables[:10]:  # Show first 10 priority tables
+                    #         schema = table.get('schema', 'unknown')
+                    #         name = table.get('table', table.get('name', 'unknown'))
+                    #         st.write(f"  • {schema}.{name}")
+                    #     if len(priority_tables) > 10:
+                    #         st.write(f"  ... and {len(priority_tables) - 10} more priority tables")
+                
+                # Limit the number of tables to analyze based on user configuration
+                original_table_count = len(tables_info)
+                if len(tables_info) > max_tables_to_analyze:
+                    tables_info = tables_info[:max_tables_to_analyze]
+                    st.info(f"📋 Limited analysis to first {max_tables_to_analyze} tables (out of {original_table_count} total)")
+                else:
+                    st.write(f"📋 Found {len(tables_info)} tables to analyze")
                 
                 # DEBUG: Show what tables we found (first few)
                 # if len(tables_info) > 0:
@@ -2155,6 +2283,104 @@ def show_results_display():
     with col2:
         if st.button("🏠 Back to Dashboard"):
             st.session_state.current_page = "1. Dashboard"
+            st.rerun()
+
+def show_upload_regulations():
+    """Simple page for uploading regulation documents and generating JSON"""
+    st.header("📄 Upload Regulation Document")
+    st.markdown("Upload a PDF document and get structured JSON data using AI")
+    
+    # Simple file upload
+    uploaded_file = st.file_uploader(
+        "Choose a PDF file",
+        type=['pdf'],
+        help="Upload your regulation or compliance document",
+        accept_multiple_files=False
+    )
+    
+    if uploaded_file is not None:
+        st.success(f"✅ **{uploaded_file.name}** uploaded successfully")
+        
+        # Simple process button
+        if st.button("🤖 Process with AI", type="primary", use_container_width=True):
+            try:
+                # Extract text
+                with st.spinner("� Reading PDF..."):
+                    pdf_text = read_pdf_text(uploaded_file)
+                    
+                    if not pdf_text.strip():
+                        st.error("❌ Could not extract text from PDF. Please ensure the PDF contains readable text.")
+                        return
+                
+                # Process with AI
+                with st.spinner("🤖 Analyzing with AI..."):
+                    regulation_data = get_personal_data_definition(pdf_text)
+                    
+                    if not regulation_data:
+                        st.error("❌ Failed to process document with AI. Please try again.")
+                        return
+                
+                # Simple success message
+                st.success("✅ **Processing Complete!**")
+                
+                # Display JSON cleanly
+                if isinstance(regulation_data, dict):
+                    st.subheader("📄 Regulation Data (JSON)")
+                    
+                    # Clean JSON display options
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        pretty_print = st.checkbox("Pretty Format", value=True)
+                    
+                    if pretty_print:
+                        json_str = json.dumps(regulation_data, indent=2)
+                    else:
+                        json_str = json.dumps(regulation_data)
+                    
+                    # Display JSON
+                    st.code(json_str, language='json')
+                    
+                    # Simple download
+                    filename = uploaded_file.name.replace('.pdf', '_regulation.json')
+                    st.download_button(
+                        label="💾 Download JSON",
+                        data=json_str,
+                        file_name=filename,
+                        mime="application/json",
+                        use_container_width=True
+                    )
+                    
+                else:
+                    # Fallback display
+                    st.subheader("📄 AI Response")
+                    st.write(regulation_data)
+                        
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+    
+    else:
+        # Simple help text when no file uploaded
+        st.info("👆 Upload a PDF regulation document to get started")
+        
+        # Minimal examples
+        with st.expander("� Supported Documents", expanded=False):
+            st.markdown("""
+            - **GDPR** - General Data Protection Regulation
+            - **CCPA** - California Consumer Privacy Act  
+            - **HIPAA** - Health Insurance Portability
+            - **Custom** - Privacy policies and data regulations
+            """)
+    
+    # Simple navigation
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🏠 Dashboard"):
+            st.session_state.current_page = "Dashboard"
+            st.rerun()
+    with col2:
+        if st.button("� Results Table"):
+            st.session_state.current_page = "5. Check Results Table"
             st.rerun()
 
 def show_check_results_table():
