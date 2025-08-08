@@ -756,7 +756,8 @@ def show_ai_discovery():
     
     with col1:
         confidence_threshold = st.slider("Minimum confidence threshold:", 0.0, 1.0, 0.6, 0.1)
-        # sample_rows = st.selectbox("Sample rows per table:", [10, 50, 100, 500], index=1)
+        max_tables_to_analyze = st.slider("Max tables to analyze:", 10, 100, 50, 5, 
+                                         help="Limit the number of tables to analyze for better performance")
     
     with col2:
         include_system_tables = st.checkbox("Include system/metadata tables", value=False)
@@ -779,7 +780,42 @@ def show_ai_discovery():
                 progress_bar.progress(0.3)
                 
                 tables_info = st.session_state.db_manager.get_tables(connection_id)
-                st.write(f"📋 Found {len(tables_info)} tables to analyze")
+                
+                # Database-specific table prioritization for ECC60jkl_HACK (SAP ECC)
+                if database_name == "ECC60jkl_HACK":
+                    priority_tables = []
+                    other_tables = []
+                    
+                    for table in tables_info:
+                        table_name = table.get('table', table.get('name', '')).upper()
+                        schema_name = table.get('schema', '').lower()
+                        
+                        # Prioritize dbo.KNA1 (Customer Master) and dbo.P* tables (Personnel/HR tables in SAP)
+                        if schema_name == 'dbo' and (table_name == 'KNA1' or table_name.startswith('P')):
+                            priority_tables.append(table)
+                        else:
+                            other_tables.append(table)
+                    
+                    # Combine priority tables first, then others
+                    tables_info = priority_tables + other_tables
+                    
+                    # if priority_tables:
+                    #     st.info(f"🎯 **SAP ECC Analysis**: Prioritizing {len(priority_tables)} key tables (dbo.KNA1 + dbo.P* tables) for PII detection")
+                    #     st.write("**Priority tables:**")
+                    #     for table in priority_tables[:10]:  # Show first 10 priority tables
+                    #         schema = table.get('schema', 'unknown')
+                    #         name = table.get('table', table.get('name', 'unknown'))
+                    #         st.write(f"  • {schema}.{name}")
+                    #     if len(priority_tables) > 10:
+                    #         st.write(f"  ... and {len(priority_tables) - 10} more priority tables")
+                
+                # Limit the number of tables to analyze based on user configuration
+                original_table_count = len(tables_info)
+                if len(tables_info) > max_tables_to_analyze:
+                    tables_info = tables_info[:max_tables_to_analyze]
+                    st.info(f"📋 Limited analysis to first {max_tables_to_analyze} tables (out of {original_table_count} total)")
+                else:
+                    st.write(f"📋 Found {len(tables_info)} tables to analyze")
                 
                 # DEBUG: Show what tables we found (first few)
                 # if len(tables_info) > 0:
