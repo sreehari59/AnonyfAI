@@ -214,7 +214,7 @@ def main():
     # Clean sidebar navigation with logo
     try:
         # Display logo in sidebar
-        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+        logo_path = os.path.join(os.path.dirname(__file__), "logo2.png")
         if os.path.exists(logo_path):
             st.sidebar.image(logo_path, width=200)
         else:
