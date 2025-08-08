@@ -17,6 +17,49 @@ import re
 import difflib
 from typing import List, Dict, Optional
 
+def create_enhanced_dataframe(data, column_mappings=None, format_columns=None, style_columns=None):
+    """Create an enhanced, styled DataFrame for better display"""
+    if not data:
+        return None
+    
+    df = pd.DataFrame(data)
+    
+    # Apply column mappings if provided
+    if column_mappings:
+        df = df.rename(columns=column_mappings)
+    
+    # Apply formatting if provided
+    if format_columns:
+        for col, formatter in format_columns.items():
+            if col in df.columns:
+                df[col] = df[col].apply(formatter)
+    
+    # Apply styling if provided
+    styled_df = df
+    if style_columns:
+        def apply_style(val, col_styles):
+            for pattern, style in col_styles.items():
+                if pattern in str(val):
+                    return style
+            return ''
+        
+        for col, styles in style_columns.items():
+            if col in df.columns:
+                styled_df = styled_df.style.applymap(lambda x: apply_style(x, styles), subset=[col])
+    
+    return styled_df
+
+def get_priority_style(val):
+    """Get styling for priority/type values"""
+    if val in ['HIGH', 'NAME']:
+        return 'background-color: #ffcdd2; color: #d32f2f; font-weight: bold;'
+    elif val == 'MEDIUM':
+        return 'background-color: #fff3e0; color: #f57c00; font-weight: bold;'
+    elif val == 'LOW':
+        return 'background-color: #e8f5e8; color: #2e7d32; font-weight: bold;'
+    else:
+        return 'color: #333; font-weight: normal;'
+
 # Import our enhanced modules
 import sys
 import os
@@ -88,9 +131,6 @@ if 'logger' not in st.session_state:
     st.session_state.logger = logger
 
 def main():
-    st.title("🔒 Enhanced PII Detection Prototype")
-    st.markdown("Database → AI Discovery → Data Encryption → Results Display")
-    
     # Clean sidebar navigation
     st.sidebar.title("📋 Navigation")
     
@@ -180,6 +220,9 @@ def main():
 
 def show_dashboard():
     """Clean and professional dashboard with workflow overview"""
+    st.title("🔒 Enhanced PII Detection Prototype")
+    st.markdown("Database → AI Discovery → Data Encryption → Results Display")
+    
     st.header("🎯 PII Detection and Encryption Dashboard")
     st.markdown("Follow the workflow below:")
     
@@ -1868,11 +1911,61 @@ def show_encryption_preparation():
         preview_data = results[:20]
         if preview_data:
             df = pd.DataFrame(preview_data)
-            # Show actual data without masking for analysis
-            display_df = df[['Name', 'Key', 'Schema', 'AI_Confidence', 'Encryption_Key', 'Column_Type', 'Priority']]
-            display_df.columns = ['Name', 'Primary Key', 'Schema Location', 'AI Confidence', 'Encryption Key', 'Type', 'Priority']
             
-            st.dataframe(display_df, use_container_width=True)
+            # Prepare enhanced display
+            display_df = df[['Name', 'Key', 'Schema', 'AI_Confidence', 'Encryption_Key', 'Column_Type', 'Priority']]
+            
+            # Enhanced column names with emojis
+            column_mapping = {
+                'Name': '👤 Name',
+                'Key': '🔑 Primary Key',
+                'Schema': '📍 Schema Location',
+                'AI_Confidence': '🎯 AI Confidence',
+                'Encryption_Key': '🔐 Encryption Key',
+                'Column_Type': '📊 Type',
+                'Priority': '⭐ Priority'
+            }
+            display_df = display_df.rename(columns=column_mapping)
+            
+            # Format confidence properly (it's already a decimal)
+            if '🎯 AI Confidence' in display_df.columns:
+                display_df['🎯 AI Confidence'] = display_df['🎯 AI Confidence'].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
+            
+            # Truncate long values for display
+            if '🔐 Encryption Key' in display_df.columns:
+                display_df['🔐 Encryption Key'] = display_df['🔐 Encryption Key'].apply(lambda x: f"{str(x)[:15]}..." if pd.notnull(x) and len(str(x)) > 15 else str(x))
+            
+            if '📍 Schema Location' in display_df.columns:
+                display_df['📍 Schema Location'] = display_df['📍 Schema Location'].apply(lambda x: '.'.join(str(x).split('.')[-2:]) if '.' in str(x) else str(x))
+            
+            # Color-code priority and type
+            def style_priority(val):
+                if val == 'HIGH':
+                    return 'background-color: #ffcdd2; color: #d32f2f; font-weight: bold;'
+                elif val == 'MEDIUM':
+                    return 'background-color: #fff3e0; color: #f57c00; font-weight: bold;'
+                elif val == 'NAME':
+                    return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+                else:
+                    return 'background-color: #e8f5e8; color: #2e7d32; font-weight: bold;'
+            
+            # Apply styling
+            styled_df = display_df.style.applymap(style_priority, subset=['⭐ Priority', '📊 Type'])
+            
+            st.dataframe(
+                styled_df, 
+                use_container_width=True,
+                column_config={
+                    "👤 Name": st.column_config.TextColumn("👤 Name", width="medium"),
+                    "🔑 Primary Key": st.column_config.TextColumn("🔑 Primary Key", width="small"),
+                    "📍 Schema Location": st.column_config.TextColumn("📍 Schema Location", width="medium"),
+                    "🎯 AI Confidence": st.column_config.TextColumn("🎯 AI Confidence", width="small"),
+                    "🔐 Encryption Key": st.column_config.TextColumn("🔐 Encryption Key", width="medium"),
+                    "📊 Type": st.column_config.TextColumn("📊 Type", width="small"),
+                    "⭐ Priority": st.column_config.TextColumn("⭐ Priority", width="small"),
+                },
+                hide_index=True
+            )
             
             if len(results) > 20:
                 st.info(f"Showing first 20 records out of {len(results):,} total records")
@@ -1961,14 +2054,59 @@ def show_results_display():
                 st.metric("Avg AI Confidence", f"{avg_confidence:.2f}")
             
             # Show sample records
-            st.write("**Sample Records:**")
+            st.write("**📋 Sample Records:**")
             import pandas as pd
             df = pd.DataFrame(table_records[:10])
             if not df.empty:
-                # Show actual data without masking for analysis
+                # Prepare enhanced display
                 display_df = df[['Name', 'Key', 'Column_Type', 'AI_Confidence', 'Encryption_Key', 'Priority']]
-                display_df.columns = ['Name', 'Primary Key', 'Type', 'AI Confidence', 'Encryption Key', 'Priority']
-                st.dataframe(display_df, use_container_width=True)
+                
+                # Enhanced column names with emojis
+                column_mapping = {
+                    'Name': '👤 Name',
+                    'Key': '🔑 Primary Key',
+                    'Column_Type': '📊 Type',
+                    'AI_Confidence': '🎯 AI Confidence',
+                    'Encryption_Key': '🔐 Encryption Key',
+                    'Priority': '⭐ Priority'
+                }
+                display_df = display_df.rename(columns=column_mapping)
+                
+                # Format confidence properly (it's already a decimal)
+                if '🎯 AI Confidence' in display_df.columns:
+                    display_df['🎯 AI Confidence'] = display_df['🎯 AI Confidence'].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
+                
+                # Truncate long encryption keys for display
+                if '🔐 Encryption Key' in display_df.columns:
+                    display_df['🔐 Encryption Key'] = display_df['🔐 Encryption Key'].apply(lambda x: f"{str(x)[:15]}..." if pd.notnull(x) and len(str(x)) > 15 else str(x))
+                
+                # Color-code priority and type
+                def style_priority(val):
+                    if val == 'HIGH':
+                        return 'background-color: #ffcdd2; color: #d32f2f; font-weight: bold;'
+                    elif val == 'MEDIUM':
+                        return 'background-color: #fff3e0; color: #f57c00; font-weight: bold;'
+                    elif val == 'NAME':
+                        return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+                    else:
+                        return 'background-color: #e8f5e8; color: #2e7d32; font-weight: bold;'
+                
+                # Apply styling and display
+                styled_df = display_df.style.applymap(style_priority, subset=['⭐ Priority', '📊 Type'])
+                
+                st.dataframe(
+                    styled_df, 
+                    use_container_width=True,
+                    column_config={
+                        "👤 Name": st.column_config.TextColumn("👤 Name", width="medium"),
+                        "🔑 Primary Key": st.column_config.TextColumn("🔑 Primary Key", width="small"),
+                        "📊 Type": st.column_config.TextColumn("📊 Type", width="small"),
+                        "🎯 AI Confidence": st.column_config.TextColumn("🎯 AI Confidence", width="small"),
+                        "🔐 Encryption Key": st.column_config.TextColumn("🔐 Encryption Key", width="medium"),
+                        "⭐ Priority": st.column_config.TextColumn("⭐ Priority", width="small"),
+                    },
+                    hide_index=True
+                )
     
     # Download options
     st.subheader("💾 Export Options")
@@ -2057,18 +2195,63 @@ def show_check_results_table():
                 st.subheader(f"Similar names to: '{search_name}' (threshold: {similarity_threshold})")
             
             if results:
-                # Convert to DataFrame for better display
+                # Convert to DataFrame for enhanced display
                 df = pd.DataFrame(results)
                 
-                # Show count
-                st.success(f"Found {len(results)} matching records")
+                # Show count with enhanced styling
+                st.markdown(f"""
+                <div style='background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%); 
+                            padding: 15px; border-radius: 10px; text-align: center; margin: 10px 0;'>
+                    <h3 style='color: white; margin: 0; font-weight: bold;'>
+                        ✅ Found {len(results)} matching record{'s' if len(results) != 1 else ''}
+                    </h3>
+                </div>
+                """, unsafe_allow_html=True)
                 
                 # Add similarity score column if doing similar search
                 if similar_search and 'similarity_score' in df.columns:
                     df = df.sort_values('similarity_score', ascending=False)
                 
-                # Display the results table
-                st.dataframe(df, use_container_width=True)
+                # Enhance column names for better display
+                column_mapping = {
+                    'id': 'ID',
+                    'name': '👤 Name',
+                    'source': '📍 Source',
+                    'probability': '📊 Probability',
+                    'key': '🔑 Key',
+                    'encrypt_key': '🔐 Encryption Key',
+                    'similarity_score': '🎯 Similarity Score'
+                }
+                
+                # Rename columns for better display
+                display_df = df.rename(columns=column_mapping)
+                
+                # Format probability and similarity columns properly
+                if '📊 Probability' in display_df.columns:
+                    display_df['📊 Probability'] = display_df['📊 Probability'].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
+                
+                if '🎯 Similarity Score' in display_df.columns:
+                    display_df['🎯 Similarity Score'] = display_df['🎯 Similarity Score'].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
+                
+                # Truncate long encryption keys for display
+                if '🔐 Encryption Key' in display_df.columns:
+                    display_df['🔐 Encryption Key'] = display_df['🔐 Encryption Key'].apply(lambda x: f"{str(x)[:20]}..." if pd.notnull(x) and len(str(x)) > 20 else str(x))
+                
+                # Display the enhanced results table with column configuration
+                st.dataframe(
+                    display_df, 
+                    use_container_width=True,
+                    column_config={
+                        "ID": st.column_config.NumberColumn("ID", width="small"),
+                        "👤 Name": st.column_config.TextColumn("👤 Name", width="medium"),
+                        "📍 Source": st.column_config.TextColumn("📍 Source", width="large"),
+                        "📊 Probability": st.column_config.TextColumn("📊 Probability", width="small"),
+                        "🔑 Key": st.column_config.TextColumn("🔑 Key", width="medium"),
+                        "🔐 Encryption Key": st.column_config.TextColumn("🔐 Encryption Key", width="medium"),
+                        "🎯 Similarity Score": st.column_config.TextColumn("🎯 Similarity Score", width="small"),
+                    },
+                    hide_index=True
+                )
                 
                 # Download option
                 csv = df.to_csv(index=False)
@@ -2105,7 +2288,29 @@ def show_check_results_table():
             if recent_records:
                 st.subheader("🕒 Recent Additions")
                 recent_df = pd.DataFrame(recent_records)
-                st.dataframe(recent_df, use_container_width=True)
+                
+                # Enhanced column names
+                column_mapping = {
+                    'name': '👤 Name',
+                    'source': '📍 Source',
+                    'probability': '📊 Probability'
+                }
+                recent_df = recent_df.rename(columns=column_mapping)
+                
+                # Format probability properly (it's already in percentage)
+                if '📊 Probability' in recent_df.columns:
+                    recent_df['📊 Probability'] = recent_df['📊 Probability'].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A")
+                
+                st.dataframe(
+                    recent_df, 
+                    use_container_width=True,
+                    column_config={
+                        "👤 Name": st.column_config.TextColumn("👤 Name", width="medium"),
+                        "📍 Source": st.column_config.TextColumn("📍 Source", width="large"),
+                        "📊 Probability": st.column_config.TextColumn("📊 Probability", width="small"),
+                    },
+                    hide_index=True
+                )
         else:
             st.info("No data available in the results table yet.")
     except Exception as e:
