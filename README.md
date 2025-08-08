@@ -4,52 +4,12 @@ An advanced **Personally Identifiable Information (PII) Detection System** with 
 
 ## 🌟 Key Features
 
-### ✨ Advanced Search & Analysis (NEW!)
-- **Results Table Search**: Search and browse detected PII names with fuzzy matching
-- **Exact Match Search**: Find specific PII entries with case-insensitive matching  
-- **Similar Names Search**: Use advanced similarity algorithms to find name variations
-- **Smart Name Normalization**: Handles variations like "Robert D. Junior" vs "Robert Junior"
-- **Real-time Statistics**: View table statistics and recent additions
-- **Export Functionality**: Download search results as CSV files
-
-### 🤖 AI-Powered Detection
-- **Claude AI Integration**: Intelligent table discovery and PII action recommendations
-- **Smart Table Selection**: AI identifies tables most likely to contain PII
-- **Context-Aware Decisions**: AI suggests appropriate actions (mask, encrypt, log) based on data context
-- **Confidence Scoring**: AI provides confidence scores for detection recommendations
-
-### 🗄️ Multi-Database Support
-- **Simultaneous Connections**: Connect to multiple databases at once
-- **Parallel Processing**: Concurrent PII scanning across databases
-- **Multiple Database Types**: SQL Server, Oracle, and more via ODBC
-- **Connection Pooling**: Efficient database connection management
-- **Results Database Integration**: Direct querying of PII detection results
-
-### 🛡️ Data Protection & Encryption
-- **AES Encryption**: Secure PII encryption using Fernet (AES 128)
-- **Smart Masking**: Context-aware data masking strategies
-- **Key Management**: Secure master key generation and management
-- **Regulatory Compliance**: GDPR, CCPA, and HIPAA compliance features
-
-### 💾 Results Management
-- **SQLite Database**: Persistent storage of all PII detection results
-- **SQL Server Integration**: Direct access to `identified_names_team_epsilon` table
-- **Scan History**: Track all scan sessions with detailed metadata
-- **Export Options**: CSV export for reporting and analysis
-- **Advanced Filtering**: Search by name, source, probability, and similarity
-
-### 📊 Advanced Reporting
-- **Executive Summaries**: High-level PII detection overviews
-- **Compliance Reports**: Detailed regulatory compliance analysis
-- **Risk Assessments**: Data security risk evaluation
-- **Trend Analysis**: Historical PII detection patterns
-
-### 🎯 Enhanced User Experience
-- **5-Page Workflow**: Streamlined navigation through the PII detection process
-- **Interactive Web Interface**: Modern Streamlit-based UI
-- **Real-time Progress**: Live updates during scanning operations
-- **Visual Analytics**: Charts and graphs for data insights
-- **Configurable Settings**: Flexible configuration options
+- **🔍 Advanced Search**: Fuzzy matching and name normalization for finding PII variations
+- **🤖 AI-Powered Detection**: Claude AI integration for intelligent table discovery and recommendations
+- **🗄️ Multi-Database Support**: Connect to multiple SQL Server, Oracle databases simultaneously
+- **🛡️ Data Protection**: AES encryption, smart masking, and regulatory compliance (GDPR, CCPA, HIPAA)
+- **� Results Management**: Persistent storage, export capabilities, and advanced search
+- **🎯 5-Step Workflow**: Streamlined navigation from database connection to results analysis
 
 ## 🚀 Quick Start
 
@@ -150,44 +110,12 @@ DATABASE_PROFILES = {
 
 ## 📖 Usage Guide
 
-### 1. Database Connection
-- Navigate to "1. Connect to Database"
-- Select from available database profiles
-- Connect to SQL Server instances with real data
-- Access enterprise databases like AdventureWorks2019, Results, etc.
-
-### 2. AI Table Discovery
-Use the AI-powered table discovery to identify tables most likely to contain PII:
-- Navigate to "2. AI Discovery"
-- Connect to your databases
-- Let AI analyze and recommend high-priority tables
-- Review confidence scores and PII type predictions
-
-### 3. Data Protection & Encryption
-Prepare your data for secure handling:
-- Go to "3. Encryption Preparation"
-- Configure encryption settings and security parameters
-- Test encryption/decryption functionality
-- Set up regulatory compliance requirements
-
-### 4. Results Display
-View comprehensive PII detection results:
-- Access "4. Results Display" 
-- Review detected PII with confidence scores
-- Export findings to CSV
-- Analyze risk assessments and compliance status
-
-### 5. Check Results Table (NEW!)
-Search and analyze the PII detection database:
-- Navigate to "5. Check Results Table"
-- **Search by name**: Enter specific names to find exact matches
-- **Fuzzy matching**: Find similar names with configurable similarity threshold
-- **Handle variations**: Automatically matches names like:
-  - "Andrew R. Hill" ↔ "Andrew R Hill" (periods)
-  - "Robert D. Junior" ↔ "Robert Junior" (middle initials)
-  - "Robert D Junior" ↔ "Robert D Juniorr" (typos)
-- **View statistics**: See total records, unique names, and sources
-- **Export results**: Download search results as CSV files
+### 5-Step Workflow
+1. **Database Connection** - Connect to SQL Server databases
+2. **AI Discovery** - AI analyzes tables for PII likelihood with confidence scores
+3. **Encryption Preparation** - Configure security settings and compliance requirements
+4. **Results Display** - View detected PII with export capabilities
+5. **Check Results Table** - Search PII database with fuzzy matching and export results
 
 ## 🎯 Application Workflow
 
@@ -221,167 +149,23 @@ The application provides a structured 5-step workflow for comprehensive PII dete
 
 ## 🔍 Smart Search Features
 
-The new "Check Results Table" page provides advanced search capabilities:
+**Advanced name matching capabilities:**
+- **Exact Match**: Case-insensitive search with punctuation handling
+- **Fuzzy Matching**: Configurable similarity threshold (0.0-1.0) with intelligent normalization
+- **Name Variations**: Handles "Robert D. Junior" ↔ "Robert Junior", "Andrew R. Hill" ↔ "Andrew R Hill"
+- **Real-time Statistics**: Database metrics and CSV export functionality
 
-### Exact Match Search
-- **Case-insensitive**: Matches regardless of capitalization
-- **Punctuation handling**: "Andrew R. Hill" matches "Andrew R Hill"
-- **Space normalization**: Handles multiple spaces and formatting differences
 
-### Fuzzy Matching Algorithm
-- **Similarity threshold**: Configurable from 0.0 to 1.0 (default: 0.6)
-- **Intelligent normalization**: 
-  - Removes periods and extra spaces
-  - Handles common name suffixes (Jr, Senior, III, etc.)
-  - Standardizes formatting for accurate comparison
-- **Examples of matches**:
-  - "Robert D. Junior" ↔ "Robert Junior" (90% similarity)
-  - "Andrew R Hill" ↔ "Andrew R. Hill" (100% similarity)
-  - "John Smith" ↔ "Jon Smith" (89% similarity)
-
-### Database Statistics
-- **Real-time metrics**: Total records, unique names, unique sources
-- **Recent additions**: View latest PII detections
-- **Export functionality**: Download search results as CSV
-
-## 🔍 Advanced Search Algorithms
-
-### Name Normalization Algorithm
-
-The system uses intelligent name normalization to handle common variations:
-
-```python
-def normalize_name(name: str) -> str:
-    """Smart name normalization for accurate matching"""
-    # Convert to lowercase and strip whitespace
-    normalized = name.lower().strip()
-    
-    # Remove periods (Dr. Smith → Dr Smith)
-    normalized = normalized.replace('.', '')
-    
-    # Normalize multiple spaces to single space
-    normalized = re.sub(r'\s+', ' ', normalized)
-    
-    # Handle common suffixes (Jr, Senior, III, etc.)
-    suffixes = [' jr', ' junior', ' sr', ' senior', ' iii', ' ii', ' iv']
-    for suffix in suffixes:
-        if normalized.endswith(suffix):
-            normalized = normalized[:-len(suffix)].strip()
-            break
-    
-    return normalized
-```
-
-### Fuzzy Matching with Sequence Matching
-
-Uses Python's `difflib.SequenceMatcher` for intelligent similarity scoring:
-
-- **Ratio Calculation**: Compares normalized strings for similarity
-- **Configurable Threshold**: Adjustable similarity requirements (0.0-1.0)
-- **Context Preservation**: Maintains original formatting in results
-- **Performance Optimized**: Efficient string comparison algorithms
-
-### Search Examples
-
-| Search Term | Database Entry | Similarity | Match Type |
-|-------------|----------------|------------|------------|
-| "Andrew R. Hill" | "Andrew R Hill" | 100% | Exact (normalized) |
-| "Robert D. Junior" | "Robert Junior" | 90% | Similar (suffix removed) |
-| "John Smith" | "Jon Smith" | 89% | Fuzzy (typo correction) |
-| "Dr. Sarah Johnson" | "Sarah Johnson" | 95% | Similar (title removed) |
-
-## 📋 PII Detection Patterns
-
-The system detects 30+ PII types across regulatory frameworks:
-
-### HIPAA Protected Health Information (PHI)
-- Social Security Numbers (SSN)
-- Medical Record Numbers
-- Health Plan Numbers
-- Account Numbers
-- Email Addresses
-- Phone/Fax Numbers
-- Dates of Birth
-- Biometric Identifiers
-
-### GDPR Special Categories
-- Racial/Ethnic Origin
-- Political Opinions  
-- Religious Beliefs
-- Trade Union Membership
-- Genetic Data
-- Health Data
-- Sexual Orientation
-
-### CCPA Personal Information
-- Financial Account Numbers
-- Credit Card Numbers
-- Precise Geolocation
-- Immigration Status
-- Biometric Information
 
 ## 🧩 System Architecture
 
-### Core Components
-
-1. **Streamlit UI** (`app.py`)
-   - 5-page navigation structure
-   - Real-time progress tracking
-   - Interactive search interface
-   - Export and download capabilities
-
-2. **AI Assistant** (`ai_assistant.py`)
-   - Claude API integration
-   - Table analysis and recommendations
-   - PII action suggestions
-
-3. **Multi-Database Manager** (`multi_database_manager.py`)
-   - Parallel database connections
-   - Concurrent scanning operations
-   - Connection pooling and management
-
-4. **Encryption Manager** (`encryption_manager.py`)
-   - AES encryption using Fernet
-   - Secure key derivation
-   - Context-aware masking
-
-5. **Results Manager** (`results_manager.py`)
-   - SQLite database operations
-   - Scan session tracking
-   - Search and export functionality
-
-6. **PII Detector** (`pii_detector.py`)
-   - Pattern-based PII detection
-   - Confidence scoring
-   - Regulatory compliance mapping
-
-7. **Search Engine** (NEW!)
-   - Fuzzy name matching with difflib
-   - Smart name normalization
-   - SQL Server results integration
-   - Real-time statistics
-
-### Data Flow
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  Streamlit UI   │◄──▶│ Multi-DB Manager │◄──▶│  SQL Server     │
-│  (5 Pages)      │    │                  │    │  Databases      │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                        │                       │
-         ▼                        ▼                       ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│Search Interface │    │Parallel Scanning │    │Pattern Matching │
-│& Fuzzy Matching │    │                  │    │& AI Analysis    │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                        │                       │
-         ▼                        ▼                       ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│Results Database │◄───│ Results Manager  │◄───│Encryption Mgr   │
-│identified_names │    │                  │    │& Data Masking   │
-│_team_epsilon    │    └──────────────────┘    └─────────────────┘
-└─────────────────┘
-```
+**Core Components:**
+- **Streamlit UI** - 5-page navigation with real-time progress
+- **AI Assistant** - Claude API integration for table analysis
+- **Multi-Database Manager** - Parallel database connections and scanning
+- **Encryption Manager** - AES encryption and secure masking
+- **Results Manager** - SQLite operations and search functionality
+- **PII Detector** - Pattern-based detection with compliance mapping
 
 ## 🔧 Development
 
@@ -478,20 +262,12 @@ python -c "from ai_assistant import AIAssistant; print('AI assistant ready')"
 - **Real-time progress tracking**
 - **Memory-efficient streaming**
 
-## 🎉 What's New in This Version
+## 🎉 What's New
 
-### 🔍 Advanced Search Capabilities
-- **New Page**: "5. Check Results Table" with comprehensive search functionality
-- **Fuzzy Matching**: Find name variations with intelligent similarity algorithms
-- **Smart Normalization**: Handle periods, spaces, and common name variations
-- **Real-time Statistics**: Live database metrics and recent additions
-- **Export Integration**: Download search results directly as CSV
-
-### 🚀 Enhanced User Experience
-- **5-Page Workflow**: Streamlined navigation through the PII detection process
-- **SQL Server Integration**: Direct access to `identified_names_team_epsilon` table
-- **Interactive Search**: Real-time search with configurable similarity thresholds
-- **Visual Feedback**: Progress indicators and status updates throughout the workflow
+- **Advanced Search**: New "Check Results Table" page with fuzzy matching and name normalization
+- **5-Step Workflow**: Streamlined navigation through PII detection process  
+- **SQL Server Integration**: Direct access to enterprise databases and results table
+- **Enhanced Export**: Download search results and detection summaries as CSV
 
 ## 🤝 Contributing
 
