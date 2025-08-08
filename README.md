@@ -71,7 +71,7 @@ streamlit run ui/app.py
 ### 2. Database Credentials
 The application uses these credentials for SQL Server connections:
 - **Username**: `hackathon_epsilon`  
-- **Password**: `Qm7!dG3&yB5p`
+- **Password**:
 - **Port**: `1433`
 - **Server**: `sql-lakeside-server.database.windows.net`
 
