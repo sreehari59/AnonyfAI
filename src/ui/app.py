@@ -13,6 +13,8 @@ import secrets
 import hashlib
 import base64
 import json
+import re
+import difflib
 from typing import List, Dict, Optional
 
 # Import our enhanced modules
@@ -140,7 +142,8 @@ def main():
         "1. Connect to Database", 
         "2. AI Discovery", 
         "3. Encryption Preparation",
-        "4. Results Display"
+        "4. Results Display",
+        "5. Check Results Table"
     ]
     
     try:
@@ -172,6 +175,8 @@ def main():
         show_encryption_preparation()
     elif current_page == "4. Results Display":
         show_results_display()
+    elif current_page == "5. Check Results Table":
+        show_check_results_table()
 
 def show_dashboard():
     """Clean and professional dashboard with workflow overview"""
@@ -1645,7 +1650,7 @@ def show_encryption_preparation():
                         total_rows_processed += len(table_encryption_data)
                         
                     except Exception as table_error:
-                        st.write(f"  ⏭️ Skipped {schema}.{table_name}: {str(table_error)}")
+                        # st.write(f"  ⏭️ Skipped {schema}.{table_name}: {str(table_error)}")
                         continue
                     
                     # Update progress
@@ -2013,6 +2018,283 @@ def show_results_display():
         if st.button("🏠 Back to Dashboard"):
             st.session_state.current_page = "1. Dashboard"
             st.rerun()
+
+def show_check_results_table():
+    """New page to check and search the identified_names_team_epsilon table"""
+    st.header("🔍 Check Results Table")
+    st.markdown("Search and browse the identified PII names from the results database.")
+    
+    # Input field for name search
+    search_name = st.text_input("🔎 Enter name to search for:", placeholder="e.g., Robert D. Junior")
+    
+    # Similarity threshold slider
+    similarity_threshold = st.slider(
+        "Similarity threshold (for finding similar names)", 
+        min_value=0.0, 
+        max_value=1.0, 
+        value=0.8, 
+        step=0.1,
+        help="Higher values = more strict matching. Lower values = find more variations."
+    )
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        exact_search = st.button("🎯 Exact Match Search", type="primary")
+    
+    with col2:
+        similar_search = st.button("🔗 Similar Names Search", type="secondary")
+    
+    # Display results
+    if exact_search or similar_search:
+        try:
+            # Get results from the database
+            if exact_search:
+                results = search_exact_names(search_name)
+                st.subheader(f"Exact matches for: '{search_name}'")
+            else:
+                results = search_similar_names(search_name, similarity_threshold)
+                st.subheader(f"Similar names to: '{search_name}' (threshold: {similarity_threshold})")
+            
+            if results:
+                # Convert to DataFrame for better display
+                df = pd.DataFrame(results)
+                
+                # Show count
+                st.success(f"Found {len(results)} matching records")
+                
+                # Add similarity score column if doing similar search
+                if similar_search and 'similarity_score' in df.columns:
+                    df = df.sort_values('similarity_score', ascending=False)
+                
+                # Display the results table
+                st.dataframe(df, use_container_width=True)
+                
+                # Download option
+                csv = df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Results as CSV",
+                    data=csv,
+                    file_name=f"pii_search_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+                
+            else:
+                st.warning(f"No matching records found for: '{search_name}'")
+                
+        except Exception as e:
+            st.error(f"Error searching database: {str(e)}")
+    
+    # Show some statistics about the table
+    st.markdown("---")
+    st.subheader("📊 Table Statistics")
+    
+    try:
+        stats = get_results_table_stats()
+        if stats:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Records", stats.get('total_records', 0))
+            with col2:
+                st.metric("Unique Names", stats.get('unique_names', 0))
+            with col3:
+                st.metric("Unique Sources", stats.get('unique_sources', 0))
+                
+            # Show recent additions if any
+            recent_records = get_recent_records(limit=5)
+            if recent_records:
+                st.subheader("🕒 Recent Additions")
+                recent_df = pd.DataFrame(recent_records)
+                st.dataframe(recent_df, use_container_width=True)
+        else:
+            st.info("No data available in the results table yet.")
+    except Exception as e:
+        st.warning(f"Unable to load table statistics: {str(e)}")
+    
+    # Navigation
+    st.markdown("---")
+    if st.button("🏠 Back to Dashboard"):
+        st.session_state.current_page = "Dashboard"
+        st.rerun()
+
+def normalize_name(name: str) -> str:
+    """Normalize a name for better matching by removing periods, extra spaces, etc."""
+    if not name:
+        return ""
+    
+    # Convert to lowercase and strip
+    normalized = name.lower().strip()
+    
+    # Remove periods
+    normalized = normalized.replace('.', '')
+    
+    # Replace multiple spaces with single space
+    normalized = re.sub(r'\s+', ' ', normalized)
+    
+    # Remove common suffixes that might vary (Jr, Jr., Senior, Sr, Sr., etc.)
+    # This makes "Robert D Junior" match "Robert D. Junior" 
+    suffixes = [' jr', ' junior', ' sr', ' senior', ' iii', ' ii', ' iv']
+    for suffix in suffixes:
+        if normalized.endswith(suffix):
+            normalized = normalized[:-len(suffix)].strip()
+            break
+    
+    return normalized
+
+def search_exact_names(search_name: str) -> List[Dict]:
+    """Search for exact matches in the identified_names_team_epsilon table"""
+    try:
+        # Connect to the Results database
+        connection_id = st.session_state.db_manager.connect_to_database("Results")
+        
+        # Query the table directly
+        query = """
+        SELECT id, name, source, probability, [key], encrypt_key
+        FROM [dbo].[identified_names_team_epsilon]
+        """
+        
+        df = st.session_state.db_manager.execute_query(connection_id, query)
+        
+        if df.empty:
+            return []
+        
+        # Convert DataFrame to list of dictionaries
+        results = df.to_dict('records')
+        
+        # Filter for exact matches (case-insensitive with normalization)
+        exact_matches = []
+        search_name_normalized = normalize_name(search_name)
+        
+        for result in results:
+            result_name_normalized = normalize_name(result.get('name', ''))
+            if result_name_normalized == search_name_normalized:
+                exact_matches.append({
+                    'id': result.get('id'),
+                    'name': result.get('name'),
+                    'source': result.get('source'),
+                    'probability': result.get('probability'),
+                    'key': result.get('key'),
+                    'encrypt_key': result.get('encrypt_key')
+                })
+        
+        return exact_matches
+    except Exception as e:
+        st.error(f"Error in exact search: {str(e)}")
+        return []
+
+def search_similar_names(search_name: str, threshold: float = 0.6) -> List[Dict]:
+    """Search for similar names using fuzzy matching"""
+    try:
+        # Connect to the Results database
+        connection_id = st.session_state.db_manager.connect_to_database("Results")
+        
+        # Query the table directly
+        query = """
+        SELECT id, name, source, probability, [key], encrypt_key
+        FROM [dbo].[identified_names_team_epsilon]
+        """
+        
+        df = st.session_state.db_manager.execute_query(connection_id, query)
+        
+        if df.empty:
+            return []
+        
+        # Convert DataFrame to list of dictionaries
+        results = df.to_dict('records')
+        
+        # Find similar matches using difflib with normalization
+        similar_matches = []
+        search_name_normalized = normalize_name(search_name)
+        
+        for result in results:
+            name_normalized = normalize_name(result.get('name', ''))
+            if name_normalized:
+                # Calculate similarity ratio on normalized names
+                similarity = difflib.SequenceMatcher(None, search_name_normalized, name_normalized).ratio()
+                
+                if similarity >= threshold:
+                    similar_matches.append({
+                        'id': result.get('id'),
+                        'name': result.get('name'),
+                        'source': result.get('source'),
+                        'probability': result.get('probability'),
+                        'key': result.get('key'),
+                        'encrypt_key': result.get('encrypt_key'),
+                        'similarity_score': round(similarity, 3)
+                    })
+        
+        return similar_matches
+    except Exception as e:
+        st.error(f"Error in similarity search: {str(e)}")
+        return []
+
+def get_results_table_stats() -> Dict:
+    """Get statistics about the results table"""
+    try:
+        # Connect to the Results database
+        connection_id = st.session_state.db_manager.connect_to_database("Results")
+        
+        # Query the table directly
+        query = """
+        SELECT id, name, source, probability, [key], encrypt_key
+        FROM [dbo].[identified_names_team_epsilon]
+        """
+        
+        df = st.session_state.db_manager.execute_query(connection_id, query)
+        
+        if df.empty:
+            return {}
+        
+        # Convert DataFrame to list of dictionaries
+        results = df.to_dict('records')
+        
+        unique_names = set()
+        unique_sources = set()
+        
+        for result in results:
+            if result.get('name'):
+                unique_names.add(result['name'].lower().strip())
+            if result.get('source'):
+                unique_sources.add(result['source'])
+        
+        return {
+            'total_records': len(results),
+            'unique_names': len(unique_names),
+            'unique_sources': len(unique_sources)
+        }
+    except Exception as e:
+        st.error(f"Error getting table stats: {str(e)}")
+        return {}
+
+def get_recent_records(limit: int = 5) -> List[Dict]:
+    """Get recent records from the results table"""
+    try:
+        # Connect to the Results database
+        connection_id = st.session_state.db_manager.connect_to_database("Results")
+        
+        # Query the table directly with limit
+        query = f"""
+        SELECT TOP {limit} id, name, source, probability, [key], encrypt_key
+        FROM [dbo].[identified_names_team_epsilon]
+        ORDER BY id DESC
+        """
+        
+        df = st.session_state.db_manager.execute_query(connection_id, query)
+        
+        if df.empty:
+            return []
+        
+        # Convert DataFrame to list of dictionaries
+        results = df.to_dict('records')
+        
+        return [{
+            'name': result.get('name'),
+            'source': result.get('source'),
+            'probability': result.get('probability')
+        } for result in results]
+    except Exception as e:
+        st.error(f"Error getting recent records: {str(e)}")
+        return []
 
 if __name__ == "__main__":
     main()
