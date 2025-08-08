@@ -1,0 +1,188 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Credentials and secrets
+.env
+master.key
+*.key
+*.pem
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Results and outputs
+results/
+output/
+*.csv
+*.json
+.env/
+
+# Environment Variables and Secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.key
+master.key
+secrets.json
+credentials.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+pii_results.db
+results.db
+
+# Logs
+*.log
+logs/
+.logs/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+streamlit_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+docs/_build/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PII Detection specific files
+scan_results_*.csv
+pii_scan_*.csv
+encrypted_data/
+masked_data/
+export_*.csv
+report_*.pdf
+
+# Configuration files with sensitive data (keep templates)
+config_local.py
+local_settings.py
+production_config.py
+
+# Data files
+data/
+datasets/
+samples/
+test_data/
+real_data/
+
+# Cache directories
+.cache/
+cache/
+__pycache__/
+
+# Node modules (if any frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package files
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# AI and ML model files
+*.pkl
+*.pickle
+*.model
+models/
+checkpoints/
+
+# Large files
+*.large
+*.big
