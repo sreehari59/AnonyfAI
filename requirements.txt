@@ -12,3 +12,4 @@ python-dotenv==1.0.0
 faker==19.3.0
 cryptography==41.0.7
 anthropic>=0.25.0
+PyPDF2==3.0.1
